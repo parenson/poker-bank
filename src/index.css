@@ -1,0 +1,101 @@
+:root {
+  --felt: #0d3320;
+  --felt-mid: #154a2e;
+  --felt-light: #1e6640;
+  --gold: #c9a84c;
+  --gold-light: #e8c97a;
+  --gold-dim: #7a6030;
+  --cream: #f5f0e8;
+  --cream-dim: #c8c0b0;
+  --danger: #e05252;
+  --danger-dim: rgba(224, 82, 82, 0.15);
+  --success: #4caf7d;
+  --success-dim: rgba(76, 175, 125, 0.12);
+  --warning: #e8a020;
+  --card-bg: rgba(255, 255, 255, 0.055);
+  --card-border: rgba(201, 168, 76, 0.22);
+  --input-bg: rgba(0, 0, 0, 0.28);
+  --radius: 14px;
+  --radius-sm: 8px;
+  --radius-xs: 6px;
+  --header-h: 62px;
+  --bottom-h: 80px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root {
+  height: 100%;
+  background: var(--felt);
+  color: var(--cream);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0;
+  background:
+    radial-gradient(ellipse 60% 40% at 15% 15%, rgba(201,168,76,0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 60% at 85% 85%, rgba(10,40,24,0.7) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+#root { position: relative; z-index: 1; display: flex; flex-direction: column; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(201,168,76,0.3); border-radius: 2px; }
+
+/* Typography */
+h1, h2, h3 { font-family: 'Cinzel', serif; font-weight: 700; color: var(--gold-light); }
+
+/* Focus ring */
+*:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* Inputs */
+input[type="text"],
+input[type="number"],
+input[type="email"],
+select {
+  width: 100%;
+  padding: 11px 13px;
+  background: var(--input-bg);
+  border: 1px solid rgba(201,168,76,0.28);
+  border-radius: var(--radius-sm);
+  color: var(--cream);
+  font-size: 15px;
+  font-family: 'DM Sans', sans-serif;
+  transition: border-color 0.18s, background 0.18s;
+  -webkit-appearance: none;
+  appearance: none;
+}
+input:focus, select:focus {
+  outline: none;
+  border-color: var(--gold);
+  background: rgba(0, 0, 0, 0.38);
+}
+input::placeholder { color: rgba(200, 192, 176, 0.32); }
+select { cursor: pointer; }
+select option { background: #1a3d25; color: var(--cream); }
+
+/* Number input - hide spinners */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+input[type=number] { -moz-appearance: textfield; }
+
+/* Animations */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.fade-up { animation: fadeUp 0.28s ease both; }
+.fade-in { animation: fadeIn 0.2s ease both; }
