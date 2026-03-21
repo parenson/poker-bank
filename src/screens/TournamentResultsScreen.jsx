@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { useTournament } from '../context/TournamentContext.jsx'
+import { useGame } from '../context/GameContext.jsx'
 import { Card, Avatar, Divider, VenmoBtn } from '../components/UI.jsx'
 import { printReport } from '../utils/printReport.js'
 
@@ -11,6 +12,7 @@ function ordinal(n) {
 
 export default function TournamentResultsScreen() {
   const { state, dispatch } = useTournament()
+  const { dispatch: gameDispatch } = useGame()
   const [saved, setSaved] = useState(false)
 
   const buyIn = parseFloat(state.buyInAmount) || 0
@@ -249,7 +251,7 @@ export default function TournamentResultsScreen() {
         📄 Export PDF / Share
       </button>
 
-      <button onClick={() => dispatch({ type: 'RESET' })} style={{
+      <button onClick={() => { dispatch({ type: 'RESET' }); gameDispatch({ type: 'SET_SCREEN', screen: 'setup' }) }} style={{
         width: '100%', padding: '13px',
         background: 'rgba(255,255,255,0.06)',
         color: 'var(--cream-dim)', border: '1px solid rgba(255,255,255,0.12)',

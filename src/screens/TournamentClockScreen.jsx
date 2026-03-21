@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useTournament } from '../context/TournamentContext.jsx'
+import { useGame } from '../context/GameContext.jsx'
 import { Card, Avatar, Divider } from '../components/UI.jsx'
 import { getCurrentLevelIndex } from '../utils/blindStructure.js'
 
@@ -14,6 +15,7 @@ function fmtMoney(n) { return '$' + Math.round(n).toLocaleString() }
 
 export default function TournamentClockScreen() {
   const { state, dispatch } = useTournament()
+  const { dispatch: gameDispatch } = useGame()
   const tickRef = useRef(null)
   const [now, setNow] = useState(Date.now())
   const [showBlindSheet, setShowBlindSheet] = useState(false)
@@ -276,7 +278,7 @@ export default function TournamentClockScreen() {
 
       {/* Finish button */}
       <button
-        onClick={() => dispatch({ type: 'SET_SCREEN', screen: 'results' })}
+        onClick={() => gameDispatch({ type: 'SET_SCREEN', screen: 'tournament_results' })}
         style={{
           width: '100%', padding: '15px',
           background: 'linear-gradient(135deg, var(--gold) 0%, #b8903e 100%)',

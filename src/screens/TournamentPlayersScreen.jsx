@@ -8,7 +8,7 @@ function fmt(n) { return '$' + (Math.round((n || 0) * 100) / 100).toFixed(2) }
 
 export default function TournamentPlayersScreen() {
   const { state, dispatch } = useTournament()
-  const { state: gameState } = useGame()
+  const { state: gameState, dispatch: gameDispatch } = useGame()
   const [showRoster, setShowRoster] = useState(false)
   const { savedPlayers } = gameState
 
@@ -52,7 +52,7 @@ export default function TournamentPlayersScreen() {
     const valid = state.players.filter(p => p.name.trim())
     if (valid.length < 2) { alert('Add at least 2 players.'); return }
     dispatch({ type: 'SET', payload: { players: valid, playersRemaining: valid.length } })
-    dispatch({ type: 'SET_SCREEN', screen: 'clock' })
+    gameDispatch({ type: 'SET_SCREEN', screen: 'tournament_clock' })
   }
 
   return (

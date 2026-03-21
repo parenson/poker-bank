@@ -1,17 +1,23 @@
 import React, { useEffect } from 'react'
 import { GameProvider, useGame } from './context/GameContext.jsx'
 import { AuthProvider, useAuth } from './context/AuthContext.jsx'
+import { TournamentProvider } from './context/TournamentContext.jsx'
 import Header from './components/Header.jsx'
 import { Toast } from './components/UI.jsx'
 import LoginScreen from './screens/LoginScreen.jsx'
 
-import SetupScreen    from './screens/SetupScreen.jsx'
-import PlayersScreen  from './screens/PlayersScreen.jsx'
-import RebuysScreen   from './screens/RebuysScreen.jsx'
-import CashOutScreen  from './screens/CashOutScreen.jsx'
-import ResultsScreen  from './screens/ResultsScreen.jsx'
-import HistoryScreen  from './screens/HistoryScreen.jsx'
-import TournamentScreen from './screens/TournamentScreen.jsx'
+import SetupScreen             from './screens/SetupScreen.jsx'
+import PlayersScreen           from './screens/PlayersScreen.jsx'
+import RebuysScreen            from './screens/RebuysScreen.jsx'
+import CashOutScreen           from './screens/CashOutScreen.jsx'
+import ResultsScreen           from './screens/ResultsScreen.jsx'
+import HistoryScreen           from './screens/HistoryScreen.jsx'
+import TournamentPlayersScreen from './screens/TournamentPlayersScreen.jsx'
+import TournamentClockScreen   from './screens/TournamentClockScreen.jsx'
+import TournamentResultsScreen from './screens/TournamentResultsScreen.jsx'
+
+// Tournament sub-screens that hide the bottom nav tab bar
+const TOURNAMENT_SCREENS = new Set(['tournament_players', 'tournament_clock', 'tournament_results'])
 
 function AppInner() {
   const { state, dispatch } = useGame()
@@ -34,7 +40,7 @@ function AppInner() {
     init()
   }, [session])
 
-  // Show blank while checking session
+  // Show splash while checking session
   if (loading) {
     return (
       <div style={{
@@ -44,8 +50,7 @@ function AppInner() {
       }}>
         <div style={{
           fontFamily: 'Cinzel, serif', fontSize: 22,
-          color: 'var(--gold-light)', letterSpacing: '0.04em',
-          opacity: 0.7,
+          color: 'var(--gold-light)', letterSpacing: '0.04em', opacity: 0.7,
         }}>
           ♠ Poker Bank
         </div>
@@ -53,17 +58,19 @@ function AppInner() {
     )
   }
 
-  // Not signed in — show login
   if (!session) return <LoginScreen />
 
   const screens = {
-    setup:      <SetupScreen />,
-    players:    <PlayersScreen />,
-    rebuys:     <RebuysScreen />,
-    cashout:    <CashOutScreen />,
-    results:    <ResultsScreen />,
-    history:    <HistoryScreen />,
-    tournament: <TournamentScreen onBack={() => dispatch({ type: 'SET_SCREEN', screen: 'setup' })} />,
+    setup:               <SetupScreen />,
+    players:             <PlayersScreen />,
+    rebuys:              <RebuysScreen />,
+    cashout:             <CashOutScreen />,
+    results:             <ResultsScreen />,
+    history:             <HistoryScreen />,
+    // Tournament sub-screens — navigated into from SetupScreen
+    tournament_players:  <TournamentPlayersScreen />,
+    tournament_clock:    <TournamentClockScreen />,
+    tournament_results:  <TournamentResultsScreen />,
   }
 
   return (
@@ -83,9 +90,11 @@ function AppInner() {
 export default function App() {
   return (
     <AuthProvider>
-      <GameProvider>
-        <AppInner />
-      </GameProvider>
+      <TournamentProvider>
+        <GameProvider>
+          <AppInner />
+        </GameProvider>
+      </TournamentProvider>
     </AuthProvider>
   )
 }

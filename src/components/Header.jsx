@@ -2,14 +2,20 @@ import React from 'react'
 import { useGame } from '../context/GameContext.jsx'
 
 const TABS = [
-  { id: 'setup',      label: 'Setup',      icon: '⚙' },
-  { id: 'players',    label: 'Players',    icon: '♠' },
-  { id: 'rebuys',     label: 'Rebuys',     icon: '↺' },
-  { id: 'cashout',    label: 'Cash Out',   icon: '♦' },
-  { id: 'results',    label: 'Results',    icon: '★' },
-  { id: 'tournament', label: 'Tournament', icon: '🏆' },
-  { id: 'history',    label: 'History',    icon: '⏱' },
+  { id: 'setup',   label: 'Setup',    icon: '⚙' },
+  { id: 'players', label: 'Players',  icon: '♠' },
+  { id: 'rebuys',  label: 'Rebuys',   icon: '↺' },
+  { id: 'cashout', label: 'Cash Out', icon: '♦' },
+  { id: 'results', label: 'Results',  icon: '★' },
+  { id: 'history', label: 'History',  icon: '⏱' },
 ]
+
+// Tournament sub-screens map to their labels for the header badge
+const TOURNAMENT_LABELS = {
+  tournament_players: 'Players',
+  tournament_clock:   'Clock',
+  tournament_results: 'Results',
+}
 
 export default function Header({ onSignOut }) {
   const { state, dispatch } = useGame()
@@ -43,7 +49,7 @@ export default function Header({ onSignOut }) {
             letterSpacing: '0.06em',
             textTransform: 'uppercase',
           }}>
-            {TABS.find(t => t.id === current)?.label}
+            {TOURNAMENT_LABELS[current] || TABS.find(t => t.id === current)?.label}
           </div>
           {onSignOut && (
             <button
