@@ -4,11 +4,11 @@ import {
   Screen, Hero, Card, Avatar, Divider, BtnPrimary, BtnSecondary, VenmoBtn
 } from '../components/UI.jsx'
 import { fmt, fmtSigned } from '../utils/settlement.js'
-import { saveGame } from '../lib/db.js'
+import { saveGame, updateGame } from '../lib/db.js'
 
 export default function ResultsScreen() {
   const { state, dispatch, showToast } = useGame()
-  const { settlement, setup, players } = state
+  const { settlement, setup, players, editingGameId } = state
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
@@ -41,15 +41,19 @@ export default function ResultsScreen() {
         bankerName: setup.bankerName,
         bankerVenmoHandle: setup.bankerVenmoHandle,
       }
-      await saveGame(game, settlement)
+      if (editingGameId) {
+        await updateGame(editingGameId, game, settlement)
+      } else {
+        await saveGame(game, settlement)
+      }
       const { loadGames } = await import('../lib/db.js')
       const games = await loadGames()
       dispatch({ type: 'SET_SAVED_GAMES', games })
       setSaved(true)
-      showToast('Game saved to history')
+      showToast(editingGameId ? 'Game updated in history' : 'Game saved to history')
     } catch (e) {
       console.error(e)
-      showToast('Error saving game')
+      showToast(editingGameId ? 'Error updating game' : 'Error saving game')
     } finally {
       setSaving(false)
     }
@@ -119,7 +123,11 @@ export default function ResultsScreen() {
       )}
 
       <BtnPrimary onClick={handleSave} disabled={saving || saved} style={{ marginTop: 16 }}>
-        {saved ? '✓ Saved to History' : saving ? 'Saving…' : 'Save Game'}
+        {saved
+          ? (editingGameId ? '✓ Updated in History' : '✓ Saved to History')
+          : saving
+            ? (editingGameId ? 'Updating…' : 'Saving…')
+            : (editingGameId ? 'Update Game' : 'Save Game')}
       </BtnPrimary>
       <BtnSecondary onClick={handleNewGame} style={{ marginTop: 8 }}>
         New Game

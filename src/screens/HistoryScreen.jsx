@@ -1,10 +1,61 @@
 import React, { useState, useEffect } from 'react'
 import { useGame } from '../context/GameContext.jsx'
-import { Screen, Hero, Card, Avatar, Divider } from '../components/UI.jsx'
-import { fmt, fmtSigned } from '../utils/settlement.js'
+import { Screen, Hero, Card, Avatar, Divider, BtnPrimary, BtnSecondary } from '../components/UI.jsx'
+import { fmt, fmtSigned, computeSettlement } from '../utils/settlement.js'
 import { loadGames, deleteGame } from '../lib/db.js'
 import LeaderboardScreen from './LeaderboardScreen.jsx'
 import AmalfiReportScreen from './AmalfiReportScreen.jsx'
+
+// Rebuild editable `setup` + `players` state from a saved game record, so it
+// can be fed back into the normal setup/cashout/results flow to view its
+// settlement or make adjustments.
+function rebuildSetupAndPlayers(game) {
+  const setup = {
+    name: game.name,
+    date: (game.date || '').slice(0, 10),
+    gameType: game.gameType,
+    buyInAmount: String(game.buyInAmount ?? ''),
+    dealerUpfrontPerPlayer: String(game.dealerUpfrontPerPlayer ?? ''),
+    dealerTipPercent: String((game.dealerTipPercent ?? 0) * 100),
+    dealerName: game.dealerName || '',
+    dealerVenmoHandle: game.dealerVenmoHandle || '',
+    bankerName: game.bankerName || '',
+    bankerVenmoHandle: game.bankerVenmoHandle || '',
+  }
+
+  const players = game.results.map((r, i) => {
+    // Derive how many total buy-ins this player had from the saved buyInTotal.
+    let totalBuyins = 0
+    if (game.buyInAmount > 0) totalBuyins = Math.round(r.buyInTotal / game.buyInAmount)
+    const buyInCount = totalBuyins > 0 ? 1 : 0
+    const rebuyCount = totalBuyins > 1 ? totalBuyins - buyInCount : 0
+
+    return {
+      id: `edit_p${i}_${game.id}`,
+      name: r.name,
+      initials: r.initials,
+      venmoHandle: r.venmoHandle,
+      buyInCount,
+      rebuyCount,
+      cashOut: r.cashOut === 0 ? '' : String(r.cashOut),
+    }
+  })
+
+  return { setup, players }
+}
+
+function settlementGameFromSetup(setup) {
+  return {
+    buyInAmount: parseFloat(setup.buyInAmount) || 0,
+    dealerUpfrontPerPlayer: parseFloat(setup.dealerUpfrontPerPlayer) || 0,
+    dealerTipPercent: (parseFloat(setup.dealerTipPercent) || 0) / 100,
+    dealerName: setup.dealerName,
+    dealerVenmoHandle: setup.dealerVenmoHandle,
+    bankerName: setup.bankerName,
+    bankerVenmoHandle: setup.bankerVenmoHandle,
+    gameType: setup.gameType,
+  }
+}
 
 const GAME_TYPE_LABELS = {
   home: '🏠 Home',
@@ -179,8 +230,22 @@ function ReportCard({ icon, label, sub, onClick }) {
 
 // ─── Game Detail view ──────────────────────────────────────────────────────────
 function GameDetail({ game, onBack }) {
+  const { dispatch } = useGame()
   const sortedResults = [...game.results].sort((a, b) => b.finalNet - a.finalNet)
   const isAmalfi = game.gameType === 'amalfi'
+
+  const handleViewSettlement = () => {
+    const { setup, players } = rebuildSetupAndPlayers(game)
+    const settlement = computeSettlement(settlementGameFromSetup(setup), players)
+    dispatch({ type: 'LOAD_GAME_FOR_EDIT', setup, players, settlement, gameId: game.id })
+    dispatch({ type: 'SET_SCREEN', screen: 'results' })
+  }
+
+  const handleEditGame = () => {
+    const { setup, players } = rebuildSetupAndPlayers(game)
+    dispatch({ type: 'LOAD_GAME_FOR_EDIT', setup, players, gameId: game.id })
+    dispatch({ type: 'SET_SCREEN', screen: 'setup' })
+  }
 
   return (
     <Screen>
@@ -254,6 +319,13 @@ function GameDetail({ game, onBack }) {
           )
         })}
       </Card>
+
+      <BtnPrimary onClick={handleViewSettlement} style={{ marginTop: 4 }}>
+        View Settlement / Send Requests
+      </BtnPrimary>
+      <BtnSecondary onClick={handleEditGame} style={{ marginTop: 8, marginBottom: 20 }}>
+        Edit Game
+      </BtnSecondary>
     </Screen>
   )
 }

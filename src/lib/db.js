@@ -125,6 +125,66 @@ export async function saveGame(game, settlement) {
   return gameId
 }
 
+export async function updateGame(gameId, game, settlement) {
+  if (!supabase) return
+
+  const userId = await getCurrentUserId()
+
+  const { error: gameErr } = await supabase
+    .from('games')
+    .update({
+      name: game.name,
+      game_date: game.date,
+      buy_in_amount: game.buyInAmount,
+      dealer_upfront_per_player: game.dealerUpfrontPerPlayer,
+      dealer_tip_percent: game.dealerTipPercent,
+      dealer_name: game.dealerName || '',
+      dealer_venmo_handle: game.dealerVenmoHandle || null,
+      banker_name: game.bankerName || '',
+      banker_venmo_handle: game.bankerVenmoHandle || null,
+      total_pot: settlement.totalPot,
+      total_dealer_upfront: settlement.totalDealerUpfront,
+      total_dealer_tips: settlement.totalTipFromWinners,
+      final_dealer_take: settlement.finalDealerTake,
+      game_type: game.gameType ?? 'home',
+    })
+    .eq('id', gameId)
+
+  if (gameErr) {
+    console.error('[db] updateGame update error:', gameErr)
+    throw new Error('Failed to update game: ' + gameErr.message)
+  }
+
+  // Replace player results for this game.
+  const { error: delErr } = await supabase.from('game_results').delete().eq('game_id', gameId)
+  if (delErr) {
+    console.error('[db] updateGame delete results error:', delErr)
+    throw new Error('Game updated but clearing old results failed: ' + delErr.message)
+  }
+
+  if (settlement.playerSettlements.length === 0) return
+
+  const resultRows = settlement.playerSettlements.map(s => ({
+    game_id: gameId,
+    player_name: s.player.name || s.name || '',
+    player_initials: s.player.initials || s.player.name?.slice(0, 2).toUpperCase() || '',
+    player_venmo_handle: s.player.venmoHandle || s.venmoHandle || null,
+    buy_in_total: Number(s.potIn) || 0,
+    upfront_dealer: Number(s.upfrontDealer) || 0,
+    tip_share: Number(s.tipShare) || 0,
+    cash_out: Number(s.player.cashOut) || 0,
+    net_before_tip: Number(s.netBeforeTip) || 0,
+    final_net: Number(s.finalNet) || 0,
+    user_id: userId,
+  }))
+
+  const { error: rErr } = await supabase.from('game_results').insert(resultRows)
+  if (rErr) {
+    console.error('[db] updateGame results insert error:', rErr)
+    throw new Error('Game updated but player results failed: ' + rErr.message)
+  }
+}
+
 export async function loadGames() {
   if (!supabase) return []
 

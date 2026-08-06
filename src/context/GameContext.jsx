@@ -23,6 +23,7 @@ const INITIAL_STATE = {
   settlement: null,         // computed GameSettlement
   savedGames: [],           // from Supabase
   toast: null,
+  editingGameId: null,      // set when reopened from history; saving updates this record instead of inserting a new one
 }
 
 // ─── Reducer ──────────────────────────────────────────────────────────────────
@@ -76,6 +77,17 @@ function reducer(state, action) {
 
     case 'SET_SETTLEMENT':
       return { ...state, settlement: action.settlement }
+
+    // Reopen a saved game (from history) into editable state. `settlement`
+    // is optional — pass it to jump straight to the results screen.
+    case 'LOAD_GAME_FOR_EDIT':
+      return {
+        ...state,
+        setup: action.setup,
+        players: action.players,
+        settlement: action.settlement ?? null,
+        editingGameId: action.gameId,
+      }
 
     case 'SET_SAVED_PLAYERS':
       return { ...state, savedPlayers: action.players }
