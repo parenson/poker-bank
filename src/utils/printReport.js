@@ -63,7 +63,22 @@ export function printReport(title, rows, filename) {
   .even { color: #7a6020; }
   .total-row td { font-weight: 700; border-top: 1.5px solid #bbb; background: #f8f8f8; }
 
+  .toolbar {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; gap: 8px; flex-wrap: wrap;
+    background: #fff; padding: 0 0 12px; margin-bottom: 8px;
+    border-bottom: 1px solid #ddd;
+  }
+  .toolbar button {
+    flex: 1 1 auto; padding: 10px 14px; font-size: 14px; font-weight: 600;
+    border: 1px solid #2a6b3f; border-radius: 8px;
+    background: #2a6b3f; color: #fff; cursor: pointer;
+  }
+  .toolbar button.secondary { background: #fff; color: #2a6b3f; }
+  .toast { font-size: 12px; color: #1a7a3a; width: 100%; min-height: 14px; }
+
   @media print {
+    .toolbar { display: none; }
     /* Prevent orphaned section headers */
     .section { page-break-inside: avoid; }
     table { page-break-inside: auto; }
@@ -72,11 +87,85 @@ export function printReport(title, rows, filename) {
 </style>
 </head>
 <body>
+<div class="toolbar">
+  <button id="pb-print">Print / Save PDF</button>
+  <button id="pb-share" class="secondary">Share</button>
+  <button id="pb-copy" class="secondary">Copy</button>
+  <div class="toast" id="pb-toast"></div>
+</div>
+<div id="pb-report">
 ${rows}
+</div>
 <script>
-  // Slight delay so content renders before print dialog opens
+  var REPORT_TITLE = ${JSON.stringify(safeTitle)};
+
+  // Plain-text version of the report, used for Share and Copy.
+  function reportText() {
+    var out = [];
+    var root = document.getElementById('pb-report');
+    var h1 = root.querySelector('h1');
+    if (h1) out.push(h1.textContent.trim());
+    var sub = root.querySelector('.subtitle');
+    if (sub) out.push(sub.textContent.replace(/\\s+/g, ' ').trim());
+    var sections = root.querySelectorAll('.section');
+    for (var i = 0; i < sections.length; i++) {
+      out.push('');
+      var t = sections[i].querySelector('.section-title');
+      if (t) out.push(t.textContent.replace(/\\s+/g, ' ').trim());
+      var p = sections[i].querySelector('p');
+      if (p) out.push(p.textContent.replace(/\\s+/g, ' ').trim());
+      var rowsEl = sections[i].querySelectorAll('tr');
+      for (var r = 0; r < rowsEl.length; r++) {
+        var cells = rowsEl[r].querySelectorAll('th,td');
+        var parts = [];
+        for (var c = 0; c < cells.length; c++) parts.push(cells[c].textContent.replace(/\\s+/g, ' ').trim());
+        out.push(parts.join('  |  '));
+      }
+    }
+    return out.join('\\n');
+  }
+
+  function toast(msg) {
+    var el = document.getElementById('pb-toast');
+    el.textContent = msg;
+    setTimeout(function() { el.textContent = ''; }, 2500);
+  }
+
+  document.getElementById('pb-print').onclick = function() { window.print(); };
+
+  document.getElementById('pb-share').onclick = function() {
+    var text = reportText();
+    if (navigator.share) {
+      navigator.share({ title: REPORT_TITLE, text: text }).catch(function() {});
+    } else {
+      copyText(text);
+    }
+  };
+
+  document.getElementById('pb-copy').onclick = function() { copyText(reportText()); };
+
+  function copyText(text) {
+    function fallback() {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus(); ta.select();
+      try { document.execCommand('copy'); toast('Copied to clipboard'); }
+      catch (e) { toast('Copy failed'); }
+      document.body.removeChild(ta);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function() { toast('Copied to clipboard'); }, fallback);
+    } else {
+      fallback();
+    }
+  }
+
+  // Try the print dialog automatically; newer browsers may block this without
+  // a tap, which is why the Print button above exists.
   window.onload = function() {
-    setTimeout(function() { window.print(); }, 150);
+    setTimeout(function() { try { window.print(); } catch (e) {} }, 150);
   };
 <\/script>
 </body>
