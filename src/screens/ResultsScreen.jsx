@@ -93,7 +93,7 @@ export default function ResultsScreen() {
             Each loser pays the banker their net loss.
           </p>
           {loserPayments.map((p, i) => (
-            <PaymentRow key={i} payment={p} note="Poker loss" />
+            <PaymentRow key={i} payment={p} note={isAmalfi ? 'Amalfi' : 'Poker loss'} />
           ))}
         </Card>
       )}
@@ -104,7 +104,7 @@ export default function ResultsScreen() {
             Banker pays each winner their net take-home.
           </p>
           {winnerPayments.map((p, i) => (
-            <PaymentRow key={i} payment={p} note="Poker winnings" />
+            <PaymentRow key={i} payment={p} note={isAmalfi ? 'Amalfi' : 'Poker winnings'} />
           ))}
         </Card>
       )}
