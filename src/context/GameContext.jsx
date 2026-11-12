@@ -1,8 +1,12 @@
-import React, { createContext, useContext, useReducer, useCallback } from 'react'
-import { initials } from '../utils/settlement.js'
+import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react'
+import { initials, computeSettlement, buildSettlementGame } from '../utils/settlement.js'
+import { TOURNAMENT_STORAGE_KEY } from './TournamentContext.jsx'
 
 // ─── Initial State ─────────────────────────────────────────────────────────────
+// Dealer fee is part of the buy-in (carved out of the first buy-in) for new
+// games; reopened legacy games set this to false (fee charged on top).
 const initialSetup = {
+  dealerFeeIncluded: true,
   name: '',
   date: new Date().toISOString().split('T')[0],
   gameType: 'home',
@@ -24,6 +28,64 @@ const INITIAL_STATE = {
   savedGames: [],           // from Supabase
   toast: null,
   editingGameId: null,      // set when reopened from history; saving updates this record instead of inserting a new one
+}
+
+// ─── Persistence ──────────────────────────────────────────────────────────────
+// The in-progress game is mirrored to localStorage so a mobile browser killing
+// the page mid-game doesn't lose it.
+export const GAME_STORAGE_KEY = 'pokerbank.game.v1'
+
+function loadInitialState() {
+  try {
+    const raw = localStorage.getItem(GAME_STORAGE_KEY)
+    if (!raw) return INITIAL_STATE
+    const p = JSON.parse(raw)
+    if (!p || p.v !== 1 || !Array.isArray(p.players)) return INITIAL_STATE
+
+    const setup = { ...initialSetup, ...p.setup }
+    let screen = p.screen || 'setup'
+    // Tournament screens only make sense if the tournament state was restored too.
+    if (screen.startsWith('tournament') && !localStorage.getItem(TOURNAMENT_STORAGE_KEY)) {
+      screen = 'setup'
+    }
+    // Recompute rather than trusting a stored settlement.
+    const settlement = p.hadSettlement && p.players.length > 0
+      ? computeSettlement(buildSettlementGame(setup), p.players)
+      : null
+
+    return {
+      ...INITIAL_STATE,
+      screen,
+      setup,
+      players: p.players,
+      settlement,
+      editingGameId: p.editingGameId ?? null,
+    }
+  } catch (e) {
+    console.warn('[PokerBank] Could not restore saved game state:', e)
+    return INITIAL_STATE
+  }
+}
+
+function persistState(state) {
+  try {
+    // Only keep a game that has actually been started (has players), so an
+    // untouched setup screen doesn't carry a stale date into a later day.
+    if (state.players.length === 0 && !state.editingGameId) {
+      localStorage.removeItem(GAME_STORAGE_KEY)
+      return
+    }
+    localStorage.setItem(GAME_STORAGE_KEY, JSON.stringify({
+      v: 1,
+      screen: state.screen,
+      setup: state.setup,
+      players: state.players,
+      hadSettlement: !!state.settlement,
+      editingGameId: state.editingGameId,
+    }))
+  } catch (e) {
+    // Storage unavailable/full (e.g. private mode) — the app still works.
+  }
 }
 
 // ─── Reducer ──────────────────────────────────────────────────────────────────
@@ -78,6 +140,11 @@ function reducer(state, action) {
     case 'SET_SETTLEMENT':
       return { ...state, settlement: action.settlement }
 
+    // Remember the id of a just-saved game so further saves update it
+    // instead of inserting a duplicate.
+    case 'SET_EDITING_GAME':
+      return { ...state, editingGameId: action.id }
+
     // Reopen a saved game (from history) into editable state. `settlement`
     // is optional — pass it to jump straight to the results screen.
     case 'LOAD_GAME_FOR_EDIT':
@@ -120,7 +187,11 @@ function reducer(state, action) {
 const GameContext = createContext(null)
 
 export function GameProvider({ children }) {
-  const [state, dispatch] = useReducer(reducer, INITIAL_STATE)
+  const [state, dispatch] = useReducer(reducer, undefined, loadInitialState)
+
+  useEffect(() => {
+    persistState(state)
+  }, [state.screen, state.setup, state.players, state.settlement, state.editingGameId])
 
   const showToast = useCallback((message) => {
     dispatch({ type: 'SHOW_TOAST', message })

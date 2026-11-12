@@ -31,6 +31,11 @@ export function AuthProvider({ children }) {
   }
 
   const signOut = async () => {
+    // Don't leave this user's in-progress game on the device for the next sign-in.
+    try {
+      localStorage.removeItem('pokerbank.game.v1')
+      localStorage.removeItem('pokerbank.tournament.v1')
+    } catch (e) { /* storage unavailable */ }
     await supabase.auth.signOut()
   }
 

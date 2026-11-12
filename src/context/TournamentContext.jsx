@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer } from 'react'
+import React, { createContext, useContext, useReducer, useEffect } from 'react'
 
 const INITIAL = {
   // Setup
@@ -114,10 +114,40 @@ function reducer(state, action) {
   }
 }
 
+// Mirrored to localStorage so a mobile browser killing the page mid-tournament
+// doesn't lose it. The clock is timestamp-based, so a running clock keeps its time.
+export const TOURNAMENT_STORAGE_KEY = 'pokerbank.tournament.v1'
+
+function loadInitialState() {
+  try {
+    const raw = localStorage.getItem(TOURNAMENT_STORAGE_KEY)
+    if (!raw) return INITIAL
+    const p = JSON.parse(raw)
+    if (!p || p.v !== 1 || !p.state) return INITIAL
+    return { ...INITIAL, ...p.state }
+  } catch (e) {
+    return INITIAL
+  }
+}
+
+function persistState(state) {
+  try {
+    // Only keep a tournament that has been started (players added).
+    if (state.players.length === 0) {
+      localStorage.removeItem(TOURNAMENT_STORAGE_KEY)
+      return
+    }
+    localStorage.setItem(TOURNAMENT_STORAGE_KEY, JSON.stringify({ v: 1, state }))
+  } catch (e) {
+    // Storage unavailable/full — the app still works.
+  }
+}
+
 const TournamentContext = createContext(null)
 
 export function TournamentProvider({ children }) {
-  const [state, dispatch] = useReducer(reducer, INITIAL)
+  const [state, dispatch] = useReducer(reducer, undefined, loadInitialState)
+  useEffect(() => { persistState(state) }, [state])
   return <TournamentContext.Provider value={{ state, dispatch }}>{children}</TournamentContext.Provider>
 }
 

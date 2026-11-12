@@ -1,46 +1,55 @@
 import React, { useMemo } from 'react'
 import { useGame } from '../context/GameContext.jsx'
 import { Screen, Hero, Card, Field, PrefixInput, BtnPrimary, Avatar, Divider } from '../components/UI.jsx'
-import { fmt } from '../utils/settlement.js'
-import { computeSettlement } from '../utils/settlement.js'
+import { fmt, computeSettlement, buildSettlementGame } from '../utils/settlement.js'
 
 export default function CashOutScreen() {
   const { state, dispatch } = useGame()
   const { players, setup } = state
   const buyIn = parseFloat(setup.buyInAmount) || 0
 
+  const isAmalfi = setup.gameType === 'amalfi'
+  const feeIncluded = setup.dealerFeeIncluded !== false
+  const feePerPlayer = isAmalfi ? 0 : (parseFloat(setup.dealerUpfrontPerPlayer) || 0)
+
+  // Total buy-ins: all the cash the players put in (first buy-in + full-price rebuys).
   const totalIn = useMemo(() =>
     players.reduce((s, p) => s + buyIn * (1 + (p.rebuyCount ?? 0)), 0),
     [players, buyIn]
   )
+
+  // The dealer fee comes out of the first buy-in, so it isn't in chips.
+  const dealerFees = feePerPlayer * players.length
+  const chipsIn = feeIncluded ? totalIn - dealerFees : totalIn
 
   const totalOut = useMemo(() =>
     players.reduce((s, p) => s + (parseFloat(p.cashOut) || 0), 0),
     [players]
   )
 
-  const diff = totalIn - totalOut
+  const diff = chipsIn - totalOut
   const balanced = Math.abs(diff) < 0.50
+
+  // Live preview of the dealer's settlement (fees + tips) at the current counts.
+  const preview = useMemo(
+    () => computeSettlement(buildSettlementGame(setup), players),
+    [players, setup]
+  )
+  const playersAfterTips = preview.playerSettlements.reduce(
+    (s, ps) => s + (parseFloat(ps.player.cashOut) || 0) - ps.tipShare, 0
+  )
 
   const handleNext = () => {
     if (!balanced) {
-      alert(`Chip totals don't balance.\n\nTotal in: ${fmt(totalIn)}\nTotal out: ${fmt(totalOut)}\nDifference: ${fmt(Math.abs(diff))} ${diff > 0 ? 'under' : 'over'}`)
+      alert(`Chip totals don't balance.
+
+Chips in play: ${fmt(chipsIn)}
+Chips counted out: ${fmt(totalOut)}
+Difference: ${fmt(Math.abs(diff))} ${diff > 0 ? 'under' : 'over'}`)
       return
     }
 
-    // Compute settlement
-    const game = {
-      buyInAmount: buyIn,
-      dealerUpfrontPerPlayer: parseFloat(setup.dealerUpfrontPerPlayer) || 0,
-      dealerTipPercent: (parseFloat(setup.dealerTipPercent) || 0) / 100,
-      dealerName: setup.dealerName,
-      dealerVenmoHandle: setup.dealerVenmoHandle,
-      bankerName: setup.bankerName,
-      bankerVenmoHandle: setup.bankerVenmoHandle,
-      gameType: setup.gameType,
-    }
-
-    const settlement = computeSettlement(game, players)
+    const settlement = computeSettlement(buildSettlementGame(setup), players)
     dispatch({ type: 'SET_SETTLEMENT', settlement })
     dispatch({ type: 'SET_SCREEN', screen: 'results' })
   }
@@ -86,8 +95,12 @@ export default function CashOutScreen() {
 
       {/* Balance checker */}
       <Card title="Chip Balance Check">
-        <BalanceRow label="Total chips in game" value={fmt(totalIn)} color="var(--gold-light)" />
-        <BalanceRow label="Total chips counted out" value={fmt(totalOut)} />
+        <BalanceRow label="Total buy-ins (all players)" value={fmt(totalIn)} color="var(--gold-light)" />
+        {feeIncluded && dealerFees > 0 && (
+          <BalanceRow label={`Less dealer fees (${players.length} × ${fmt(feePerPlayer)})`} value={`− ${fmt(dealerFees)}`} />
+        )}
+        <BalanceRow label="Chips in play" value={fmt(chipsIn)} />
+        <BalanceRow label="Chips counted out" value={fmt(totalOut)} />
         <Divider />
         <BalanceRow
           label="Difference"
@@ -96,6 +109,30 @@ export default function CashOutScreen() {
           bold
         />
       </Card>
+
+      {/* Dealer settlement: fees + tips, so everything adds back up to total buy-ins */}
+      {!isAmalfi && (dealerFees > 0 || preview.totalTipFromWinners > 0) && (
+        <Card title="Dealer Settlement">
+          <BalanceRow label={`Dealer fees (${players.length} × ${fmt(feePerPlayer)})`} value={fmt(preview.totalDealerUpfront)} />
+          <BalanceRow label="Tips from winners" value={fmt(preview.totalTipFromWinners)} />
+          <Divider />
+          <BalanceRow label="Dealer total" value={fmt(preview.finalDealerTake)} color="var(--gold-light)" bold />
+          {feeIncluded && (
+            <>
+              <div style={{ height: 8 }} />
+              <BalanceRow label="Player balances (after tips)" value={fmt(playersAfterTips)} />
+              <BalanceRow label="+ Dealer total" value={fmt(preview.finalDealerTake)} />
+              <Divider />
+              <BalanceRow
+                label="= Total buy-ins"
+                value={fmt(playersAfterTips + preview.finalDealerTake)}
+                color={balanced ? 'var(--success)' : 'var(--danger)'}
+                bold
+              />
+            </>
+          )}
+        </Card>
+      )}
 
       <BtnPrimary onClick={handleNext} disabled={!balanced}>
         Calculate Results →

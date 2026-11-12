@@ -12,7 +12,9 @@ export default function RebuysScreen() {
     const totalRebuys = players.reduce((s, p) => s + (p.rebuyCount ?? 0), 0)
     const totalPot = players.reduce((s, p) => s + buyIn * (1 + (p.rebuyCount ?? 0)), 0)
     const dealerFees = parseFloat(setup.dealerUpfrontPerPlayer || 0) * players.length
-    return { totalRebuys, totalPot, dealerFees }
+    const feeIncluded = setup.dealerFeeIncluded !== false
+    const chipsInPlay = feeIncluded ? totalPot - dealerFees : totalPot
+    return { totalRebuys, totalPot, dealerFees, chipsInPlay, feeIncluded }
   }, [players, buyIn, setup])
 
   const handleNext = () => {
@@ -39,9 +41,12 @@ export default function RebuysScreen() {
         <StatRow label="Players" value={players.length} />
         <StatRow label="Total rebuys" value={stats.totalRebuys} />
         <Divider />
-        <StatRow label="Total pot" value={fmt(stats.totalPot)} highlight />
+        <StatRow label={stats.feeIncluded ? 'Total buy-ins' : 'Total pot'} value={fmt(stats.totalPot)} highlight />
         {stats.dealerFees > 0 && (
-          <StatRow label="Dealer fees collected" value={fmt(stats.dealerFees)} />
+          <StatRow label={stats.feeIncluded ? 'Dealer fees (from first buy-ins)' : 'Dealer fees collected'} value={fmt(stats.dealerFees)} />
+        )}
+        {stats.feeIncluded && stats.dealerFees > 0 && (
+          <StatRow label="Chips in play" value={fmt(stats.chipsInPlay)} />
         )}
       </Card>
 

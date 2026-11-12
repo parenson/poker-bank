@@ -24,6 +24,7 @@ export default function ResultsScreen() {
   const sorted = [...playerSettlements].sort((a, b) => b.finalNet - a.finalNet)
   const tipPct = parseFloat(setup.dealerTipPercent) || 0
   const isAmalfi = setup.gameType === 'amalfi'
+  const feeIncluded = settlement.dealerFeeIncluded !== false
 
   const handleSave = async () => {
     if (saved || saving) return
@@ -44,7 +45,10 @@ export default function ResultsScreen() {
       if (editingGameId) {
         await updateGame(editingGameId, game, settlement)
       } else {
-        await saveGame(game, settlement)
+        // Remember the new record so saving again (e.g. after the app is
+        // restored mid-session) updates it instead of duplicating it.
+        const newId = await saveGame(game, settlement)
+        if (newId) dispatch({ type: 'SET_EDITING_GAME', id: newId })
       }
       const { loadGames } = await import('../lib/db.js')
       const games = await loadGames()
@@ -74,7 +78,7 @@ export default function ResultsScreen() {
 
       <Card title="Game Summary">
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          <StatCard label="Total Pot" value={fmt(totalPot)} />
+          <StatCard label={feeIncluded && !isAmalfi ? 'Total Buy-ins' : 'Total Pot'} value={fmt(totalPot)} />
           <StatCard label="Players" value={players.length} />
           {!isAmalfi && <StatCard label="Dealer Tips" value={fmt(totalTipFromWinners)} />}
           {!isAmalfi && <StatCard label="Dealer Total" value={fmt(finalDealerTake)} highlight />}
@@ -83,7 +87,7 @@ export default function ResultsScreen() {
 
       <Card title="Standings">
         {sorted.map((s, i) => (
-          <PlayerResult key={s.player.id} settlement={s} rank={i + 1} tipPct={tipPct} isAmalfi={isAmalfi} />
+          <PlayerResult key={s.player.id} settlement={s} rank={i + 1} tipPct={tipPct} isAmalfi={isAmalfi} feeIncluded={feeIncluded} />
         ))}
       </Card>
 
@@ -156,7 +160,7 @@ function StatCard({ label, value, highlight }) {
   )
 }
 
-function PlayerResult({ settlement: s, rank, tipPct, isAmalfi }) {
+function PlayerResult({ settlement: s, rank, tipPct, isAmalfi, feeIncluded }) {
   const [open, setOpen] = useState(false)
   const net = s.finalNet
   const isWin  = net > 0.01
@@ -190,7 +194,7 @@ function PlayerResult({ settlement: s, rank, tipPct, isAmalfi }) {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--cream)' }}>{s.player.name}</div>
           <div style={{ fontSize: 12, color: 'var(--cream-dim)' }}>
-            In {fmt(s.potIn + (isAmalfi ? 0 : s.upfrontDealer))} · Out {fmt(s.player.cashOut || 0)}
+            In {fmt(s.potIn + (isAmalfi || feeIncluded ? 0 : s.upfrontDealer))} · Out {fmt(s.player.cashOut || 0)}
           </div>
         </div>
         <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -202,7 +206,10 @@ function PlayerResult({ settlement: s, rank, tipPct, isAmalfi }) {
       {open && (
         <div style={{ padding: '0 14px 12px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
           <DetailRow label="Buy-ins + rebuys" value={fmt(s.potIn)} />
-          {!isAmalfi && <DetailRow label="Upfront dealer fee" value={`− ${fmt(s.upfrontDealer)}`} />}
+          {!isAmalfi && feeIncluded && s.upfrontDealer > 0 && (
+            <DetailRow label="Includes dealer fee" value={fmt(s.upfrontDealer)} muted />
+          )}
+          {!isAmalfi && !feeIncluded && <DetailRow label="Upfront dealer fee" value={`− ${fmt(s.upfrontDealer)}`} />}
           <DetailRow label="Chips cashed out" value={fmt(s.player.cashOut || 0)} />
           <Divider style={{ margin: '8px 0' }} />
           <DetailRow label="Winnings before tip" value={fmtSigned(s.netBeforeTip)} />

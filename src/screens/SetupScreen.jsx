@@ -349,7 +349,7 @@ export default function SetupScreen() {
 
       <Card title={isAmalfi ? 'Buy-In' : 'Buy-In & Tip'}>
         <Row>
-          <Field label="Buy-In Amount" style={{ flex: 1 }}>
+          <Field label={s.dealerFeeIncluded === false || isAmalfi ? 'Buy-In Amount' : 'Buy-In Amount (total)'} style={{ flex: 1 }}>
             <PrefixInput prefix="$" type="number" placeholder="100" inputMode="decimal"
               value={s.buyInAmount} onChange={e => setGame('buyInAmount', e.target.value)} />
           </Field>
@@ -360,6 +360,13 @@ export default function SetupScreen() {
             </Field>
           )}
         </Row>
+        {!isAmalfi && (
+          <p style={{ fontSize: 12, color: 'var(--cream-dim)', margin: '0 0 12px' }}>
+            {s.dealerFeeIncluded === false
+              ? 'Older game: the dealer fee is charged on top of the buy-in.'
+              : `The dealer fee comes out of each player's first buy-in (e.g. $200 buy-in, $40 fee → $160 in chips). Rebuys are the full buy-in amount.`}
+          </p>
+        )}
         {!isAmalfi && (
           <Field label="Dealer Tip % (from net winners ≥ $20, rounded down)">
             <PrefixInput suffix="%" type="number" placeholder="10" inputMode="decimal"

@@ -1,9 +1,17 @@
 /**
  * settlement.js
- * Exact port of settlement.dart logic.
+ * Port of settlement.dart logic.
  *
- * Tip rules (match Flutter app exactly):
- *   - winnings = cashOut - (potIn + upfrontDealer)
+ * Dealer fee modes (game.dealerFeeIncluded, default true):
+ *   - included: the buy-in already contains the dealer fee. E.g. a $200
+ *     buy-in with a $40 fee gives the player $160 in chips; the $40 goes to
+ *     the dealer. Rebuys are the full buy-in amount, all in chips.
+ *       winnings = cashOut - potIn
+ *   - extra (legacy games saved before this change): the fee was charged on
+ *     top of the buy-in.
+ *       winnings = cashOut - (potIn + upfrontDealer)
+ *
+ * Tip rules:
  *   - If winnings < 20 → NO TIP
  *   - If winnings >= 20 → tip = floor(winnings * tipPercent)  (rounds DOWN to $1)
  *   - finalNet = winnings - tip
@@ -26,6 +34,7 @@ function roundCents(x) {
  */
 export function computeSettlement(game, players) {
   const { buyInAmount, dealerUpfrontPerPlayer, dealerTipPercent } = game
+  const feeIncluded = game.dealerFeeIncluded !== false
 
   const playerSettlements = []
   let totalPot = 0
@@ -38,7 +47,7 @@ export function computeSettlement(game, players) {
     const upfrontDealer = dealerUpfrontPerPlayer
     const cashOut = gp.cashOut ?? 0
 
-    const baseCost = potIn + upfrontDealer
+    const baseCost = feeIncluded ? potIn : potIn + upfrontDealer
     const winningsBeforeTip = cashOut - baseCost
     const netBeforeTip = winningsBeforeTip
 
@@ -128,7 +137,9 @@ export function computeSettlement(game, players) {
 
   return {
     playerSettlements,
-    totalPot: roundCents(totalPot),
+    dealerFeeIncluded: feeIncluded,
+    totalPot: roundCents(totalPot),   // total buy-ins (cash paid in)
+    chipsInPlay: roundCents(totalPot - (feeIncluded ? totalDealerUpfront : 0)),
     totalDealerUpfront: roundCents(totalDealerUpfront),
     totalTipFromWinners: roundCents(totalTip),
     finalDealerTake,
@@ -136,6 +147,35 @@ export function computeSettlement(game, players) {
     bankerSettlement,
     payments,
   }
+}
+
+/** Build the `game` argument for computeSettlement from the setup form state. */
+export function buildSettlementGame(setup) {
+  return {
+    buyInAmount: parseFloat(setup.buyInAmount) || 0,
+    dealerUpfrontPerPlayer: parseFloat(setup.dealerUpfrontPerPlayer) || 0,
+    dealerTipPercent: (parseFloat(setup.dealerTipPercent) || 0) / 100,
+    dealerName: setup.dealerName,
+    dealerVenmoHandle: setup.dealerVenmoHandle,
+    bankerName: setup.bankerName,
+    bankerVenmoHandle: setup.bankerVenmoHandle,
+    gameType: setup.gameType,
+    dealerFeeIncluded: setup.dealerFeeIncluded !== false,
+  }
+}
+
+/**
+ * Games saved before the dealer fee was carved out of the buy-in charged the
+ * fee on top: netBeforeTip = cashOut - buyInTotal - upfrontDealer. Detect that
+ * from a saved game's stored numbers so reopening it keeps its old math.
+ * Returns true for new-style (fee included) games.
+ */
+export function inferDealerFeeIncluded(savedGame) {
+  if (!(savedGame.dealerUpfrontPerPlayer > 0)) return true
+  const r = savedGame.results.find(x => x.upfrontDealer > 0) || savedGame.results[0]
+  if (!r) return true
+  const legacyNet = r.cashOut - r.buyInTotal - r.upfrontDealer
+  return Math.abs(r.netBeforeTip - legacyNet) >= 0.02
 }
 
 export function initials(name = '') {

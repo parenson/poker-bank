@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useGame } from '../context/GameContext.jsx'
 import { Screen, Hero, Card, Avatar, Divider, BtnPrimary, BtnSecondary } from '../components/UI.jsx'
-import { fmt, fmtSigned, computeSettlement } from '../utils/settlement.js'
+import { fmt, fmtSigned, computeSettlement, buildSettlementGame, inferDealerFeeIncluded } from '../utils/settlement.js'
 import { loadGames, deleteGame } from '../lib/db.js'
 import LeaderboardScreen from './LeaderboardScreen.jsx'
 import AmalfiReportScreen from './AmalfiReportScreen.jsx'
@@ -21,6 +21,8 @@ function rebuildSetupAndPlayers(game) {
     dealerVenmoHandle: game.dealerVenmoHandle || '',
     bankerName: game.bankerName || '',
     bankerVenmoHandle: game.bankerVenmoHandle || '',
+    // Games saved before the fee was carved out of the buy-in keep their old math.
+    dealerFeeIncluded: inferDealerFeeIncluded(game),
   }
 
   const players = game.results.map((r, i) => {
@@ -42,19 +44,6 @@ function rebuildSetupAndPlayers(game) {
   })
 
   return { setup, players }
-}
-
-function settlementGameFromSetup(setup) {
-  return {
-    buyInAmount: parseFloat(setup.buyInAmount) || 0,
-    dealerUpfrontPerPlayer: parseFloat(setup.dealerUpfrontPerPlayer) || 0,
-    dealerTipPercent: (parseFloat(setup.dealerTipPercent) || 0) / 100,
-    dealerName: setup.dealerName,
-    dealerVenmoHandle: setup.dealerVenmoHandle,
-    bankerName: setup.bankerName,
-    bankerVenmoHandle: setup.bankerVenmoHandle,
-    gameType: setup.gameType,
-  }
 }
 
 const GAME_TYPE_LABELS = {
@@ -233,10 +222,11 @@ function GameDetail({ game, onBack }) {
   const { dispatch } = useGame()
   const sortedResults = [...game.results].sort((a, b) => b.finalNet - a.finalNet)
   const isAmalfi = game.gameType === 'amalfi'
+  const feeIncluded = inferDealerFeeIncluded(game)
 
   const handleViewSettlement = () => {
     const { setup, players } = rebuildSetupAndPlayers(game)
-    const settlement = computeSettlement(settlementGameFromSetup(setup), players)
+    const settlement = computeSettlement(buildSettlementGame(setup), players)
     dispatch({ type: 'LOAD_GAME_FOR_EDIT', setup, players, settlement, gameId: game.id })
     dispatch({ type: 'SET_SCREEN', screen: 'results' })
   }
@@ -274,7 +264,7 @@ function GameDetail({ game, onBack }) {
         {!isAmalfi && <InfoRow label="Dealer fee / player" value={fmt(game.dealerUpfrontPerPlayer)} />}
         {!isAmalfi && <InfoRow label="Dealer tip %" value={`${(game.dealerTipPercent * 100).toFixed(0)}%`} />}
         <Divider />
-        <InfoRow label="Total pot" value={fmt(game.totalPot)} highlight />
+        <InfoRow label={feeIncluded && !isAmalfi ? 'Total buy-ins' : 'Total pot'} value={fmt(game.totalPot)} highlight />
         {!isAmalfi && game.finalDealerTake > 0 && <>
           <InfoRow label="Dealer upfront total" value={fmt(game.totalDealerUpfront)} />
           <InfoRow label="Total tips" value={fmt(game.totalDealerTips)} />
@@ -308,7 +298,7 @@ function GameDetail({ game, onBack }) {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 600, fontSize: 14 }}>{r.name}</div>
                 <div style={{ fontSize: 11, color: 'var(--cream-dim)' }}>
-                  In {fmt(r.buyInTotal + (isAmalfi ? 0 : r.upfrontDealer))} · Out {fmt(r.cashOut)}
+                  In {fmt(r.buyInTotal + (isAmalfi || feeIncluded ? 0 : r.upfrontDealer))} · Out {fmt(r.cashOut)}
                   {!isAmalfi && r.tipShare > 0 ? ` · Tip ${fmt(r.tipShare)}` : ''}
                 </div>
               </div>
