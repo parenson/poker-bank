@@ -7,6 +7,8 @@ import { TOURNAMENT_STORAGE_KEY } from './TournamentContext.jsx'
 // games; reopened legacy games set this to false (fee charged on top).
 const initialSetup = {
   dealerFeeIncluded: true,
+  tipMode: 'percent',       // 'percent' = % of winners' profit, 'chips' = players hand chips to the dealer
+  dealerTipChips: '',       // value of tip chips the dealer holds (chips mode), entered at cash out
   name: '',
   date: new Date().toISOString().split('T')[0],
   gameType: 'home',

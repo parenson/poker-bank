@@ -11,7 +11,13 @@
  *     top of the buy-in.
  *       winnings = cashOut - (potIn + upfrontDealer)
  *
- * Tip rules:
+ * Tip modes (game.tipMode):
+ *   - 'percent' (default): winners pay a set % of their winnings (rules below).
+ *   - 'chips': players hand tip chips to the dealer during/after the game.
+ *     No tip is computed; game.dealerTipChips is the value of the chips the
+ *     dealer holds, counted toward the chip balance and paid out by the banker.
+ *
+ * Percent tip rules:
  *   - If winnings < 20 → NO TIP
  *   - If winnings >= 20 → tip = floor(winnings * tipPercent)  (rounds DOWN to $1)
  *   - finalNet = winnings - tip
@@ -35,6 +41,8 @@ function roundCents(x) {
 export function computeSettlement(game, players) {
   const { buyInAmount, dealerUpfrontPerPlayer, dealerTipPercent } = game
   const feeIncluded = game.dealerFeeIncluded !== false
+  const tipChipsMode = game.tipMode === 'chips' && game.gameType !== 'amalfi'
+  const dealerTipChips = tipChipsMode ? Math.max(0, Number(game.dealerTipChips) || 0) : 0
 
   const playerSettlements = []
   let totalPot = 0
@@ -52,7 +60,7 @@ export function computeSettlement(game, players) {
     const netBeforeTip = winningsBeforeTip
 
     let tipShare = 0
-    if (winningsBeforeTip >= 20) {
+    if (!tipChipsMode && winningsBeforeTip >= 20) {
       const rawTip = winningsBeforeTip * dealerTipPercent
       tipShare = Math.floor(rawTip) // round DOWN to nearest dollar
       if (tipShare < 0) tipShare = 0
@@ -76,6 +84,7 @@ export function computeSettlement(game, players) {
     })
   }
 
+  if (tipChipsMode) totalTip = dealerTipChips
   const finalDealerTake = roundCents(totalDealerUpfront + totalTip)
 
   // Synthetic dealer
@@ -138,6 +147,7 @@ export function computeSettlement(game, players) {
   return {
     playerSettlements,
     dealerFeeIncluded: feeIncluded,
+    tipMode: tipChipsMode ? 'chips' : 'percent',
     totalPot: roundCents(totalPot),   // total buy-ins (cash paid in)
     chipsInPlay: roundCents(totalPot - (feeIncluded ? totalDealerUpfront : 0)),
     totalDealerUpfront: roundCents(totalDealerUpfront),
@@ -161,7 +171,16 @@ export function buildSettlementGame(setup) {
     bankerVenmoHandle: setup.bankerVenmoHandle,
     gameType: setup.gameType,
     dealerFeeIncluded: setup.dealerFeeIncluded !== false,
+    tipMode: setup.tipMode === 'chips' ? 'chips' : 'percent',
+    dealerTipChips: parseFloat(setup.dealerTipChips) || 0,
   }
+}
+
+/** Saved chips-mode games store 0% tip but a non-zero dealer tip total. */
+export function inferTipMode(savedGame) {
+  return savedGame.gameType !== 'amalfi'
+    && !(savedGame.dealerTipPercent > 0)
+    && savedGame.totalDealerTips > 0.001 ? 'chips' : 'percent'
 }
 
 /**

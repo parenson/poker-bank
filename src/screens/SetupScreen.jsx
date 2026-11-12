@@ -368,10 +368,42 @@ export default function SetupScreen() {
           </p>
         )}
         {!isAmalfi && (
+          <Field label="Dealer Tips">
+            <div style={{ display: 'flex', gap: 8 }}>
+              {[
+                { value: 'percent', label: '% of winners' },
+                { value: 'chips',   label: 'Chips to dealer' },
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => setGame('tipMode', opt.value)}
+                  style={{
+                    flex: 1, padding: '12px 4px',
+                    background: s.tipMode === opt.value ? 'rgba(201,168,76,0.18)' : 'var(--input-bg)',
+                    border: s.tipMode === opt.value ? '1px solid var(--gold)' : '1px solid rgba(201,168,76,0.2)',
+                    borderRadius: 'var(--radius-sm)',
+                    color: s.tipMode === opt.value ? 'var(--gold-light)' : 'var(--cream-dim)',
+                    fontSize: 13, fontWeight: 500,
+                    cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </Field>
+        )}
+        {!isAmalfi && s.tipMode !== 'chips' && (
           <Field label="Dealer Tip % (from net winners ≥ $20, rounded down)">
             <PrefixInput suffix="%" type="number" placeholder="10" inputMode="decimal"
               value={s.dealerTipPercent} onChange={e => setGame('dealerTipPercent', e.target.value)} />
           </Field>
+        )}
+        {!isAmalfi && s.tipMode === 'chips' && (
+          <p style={{ fontSize: 12, color: 'var(--cream-dim)', margin: '0 0 12px' }}>
+            Players tip by handing chips to the dealer. You will enter the dealer's tip chips on the Cash Out screen.
+          </p>
         )}
       </Card>
 

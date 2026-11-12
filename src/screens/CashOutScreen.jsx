@@ -27,7 +27,11 @@ export default function CashOutScreen() {
     [players]
   )
 
-  const diff = chipsIn - totalOut
+  // Chips mode: tips handed to the dealer are chips that also have to be accounted for.
+  const tipChipsMode = !isAmalfi && setup.tipMode === 'chips'
+  const tipChips = tipChipsMode ? (parseFloat(setup.dealerTipChips) || 0) : 0
+
+  const diff = chipsIn - totalOut - tipChips
   const balanced = Math.abs(diff) < 0.50
 
   // Live preview of the dealer's settlement (fees + tips) at the current counts.
@@ -44,7 +48,8 @@ export default function CashOutScreen() {
       alert(`Chip totals don't balance.
 
 Chips in play: ${fmt(chipsIn)}
-Chips counted out: ${fmt(totalOut)}
+Chips counted out: ${fmt(totalOut)}${tipChipsMode ? `
+Dealer tip chips: ${fmt(tipChips)}` : ''}
 Difference: ${fmt(Math.abs(diff))} ${diff > 0 ? 'under' : 'over'}`)
       return
     }
@@ -93,6 +98,20 @@ Difference: ${fmt(Math.abs(diff))} ${diff > 0 ? 'under' : 'over'}`)
         })}
       </Card>
 
+      {tipChipsMode && (
+        <Card title="Dealer Tip Chips">
+          <p style={{ fontSize: 12, color: 'var(--cream-dim)', marginBottom: 12 }}>
+            Value of the chips players handed the dealer as tips. They count toward the chip balance and are paid to the dealer.
+          </p>
+          <PrefixInput
+            prefix="$" type="number" placeholder="0" inputMode="decimal" min="0"
+            value={setup.dealerTipChips}
+            onChange={e => dispatch({ type: 'SET_SETUP', payload: { dealerTipChips: e.target.value } })}
+            inputStyle={{ textAlign: 'right', paddingRight: 10, paddingLeft: 22, fontSize: 15 }}
+          />
+        </Card>
+      )}
+
       {/* Balance checker */}
       <Card title="Chip Balance Check">
         <BalanceRow label="Total buy-ins (all players)" value={fmt(totalIn)} color="var(--gold-light)" />
@@ -100,7 +119,8 @@ Difference: ${fmt(Math.abs(diff))} ${diff > 0 ? 'under' : 'over'}`)
           <BalanceRow label={`Less dealer fees (${players.length} × ${fmt(feePerPlayer)})`} value={`− ${fmt(dealerFees)}`} />
         )}
         <BalanceRow label="Chips in play" value={fmt(chipsIn)} />
-        <BalanceRow label="Chips counted out" value={fmt(totalOut)} />
+        <BalanceRow label={tipChipsMode ? 'Chips counted out (players)' : 'Chips counted out'} value={fmt(totalOut)} />
+        {tipChipsMode && <BalanceRow label="Dealer tip chips" value={fmt(tipChips)} />}
         <Divider />
         <BalanceRow
           label="Difference"
@@ -114,7 +134,7 @@ Difference: ${fmt(Math.abs(diff))} ${diff > 0 ? 'under' : 'over'}`)
       {!isAmalfi && (dealerFees > 0 || preview.totalTipFromWinners > 0) && (
         <Card title="Dealer Settlement">
           <BalanceRow label={`Dealer fees (${players.length} × ${fmt(feePerPlayer)})`} value={fmt(preview.totalDealerUpfront)} />
-          <BalanceRow label="Tips from winners" value={fmt(preview.totalTipFromWinners)} />
+          <BalanceRow label={tipChipsMode ? 'Tips (chips from players)' : 'Tips from winners'} value={fmt(preview.totalTipFromWinners)} />
           <Divider />
           <BalanceRow label="Dealer total" value={fmt(preview.finalDealerTake)} color="var(--gold-light)" bold />
           {feeIncluded && (

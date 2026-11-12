@@ -22,6 +22,7 @@ export default function ResultsScreen() {
 
   const { playerSettlements, totalPot, totalDealerUpfront, totalTipFromWinners, finalDealerTake, payments } = settlement
   const sorted = [...playerSettlements].sort((a, b) => b.finalNet - a.finalNet)
+  const tipChipsMode = settlement.tipMode === 'chips'
   const tipPct = parseFloat(setup.dealerTipPercent) || 0
   const isAmalfi = setup.gameType === 'amalfi'
   const feeIncluded = settlement.dealerFeeIncluded !== false
@@ -36,7 +37,8 @@ export default function ResultsScreen() {
         gameType: setup.gameType,
         buyInAmount: parseFloat(setup.buyInAmount) || 0,
         dealerUpfrontPerPlayer: parseFloat(setup.dealerUpfrontPerPlayer) || 0,
-        dealerTipPercent: (parseFloat(setup.dealerTipPercent) || 0) / 100,
+        // Chips-mode games save 0% (the tip is stored as a dealer tip total instead).
+        dealerTipPercent: tipChipsMode ? 0 : (parseFloat(setup.dealerTipPercent) || 0) / 100,
         dealerName: setup.dealerName,
         dealerVenmoHandle: setup.dealerVenmoHandle,
         bankerName: setup.bankerName,
@@ -87,7 +89,7 @@ export default function ResultsScreen() {
 
       <Card title="Standings">
         {sorted.map((s, i) => (
-          <PlayerResult key={s.player.id} settlement={s} rank={i + 1} tipPct={tipPct} isAmalfi={isAmalfi} feeIncluded={feeIncluded} />
+          <PlayerResult key={s.player.id} settlement={s} rank={i + 1} tipPct={tipPct} isAmalfi={isAmalfi} feeIncluded={feeIncluded} tipChipsMode={tipChipsMode} />
         ))}
       </Card>
 
@@ -121,6 +123,7 @@ export default function ResultsScreen() {
             tips={totalTipFromWinners}
             total={finalDealerTake}
             tipPct={tipPct}
+            tipChipsMode={tipChipsMode}
             playerCount={players.length}
           />
         </Card>
@@ -160,7 +163,7 @@ function StatCard({ label, value, highlight }) {
   )
 }
 
-function PlayerResult({ settlement: s, rank, tipPct, isAmalfi, feeIncluded }) {
+function PlayerResult({ settlement: s, rank, tipPct, isAmalfi, feeIncluded, tipChipsMode }) {
   const [open, setOpen] = useState(false)
   const net = s.finalNet
   const isWin  = net > 0.01
@@ -220,7 +223,7 @@ function PlayerResult({ settlement: s, rank, tipPct, isAmalfi, feeIncluded }) {
               muted
             />
           )}
-          {!isAmalfi && s.netBeforeTip > 0 && s.netBeforeTip < 20 && (
+          {!isAmalfi && !tipChipsMode && s.netBeforeTip > 0 && s.netBeforeTip < 20 && (
             <div style={{ fontSize: 11, color: 'var(--cream-dim)', fontStyle: 'italic', marginTop: 4 }}>
               No tip — winnings under $20 threshold
             </div>
@@ -289,7 +292,7 @@ function PaymentRow({ payment: p, note }) {
   )
 }
 
-function DealerPayoutRow({ payment: p, upfront, tips, total, tipPct, playerCount }) {
+function DealerPayoutRow({ payment: p, upfront, tips, total, tipPct, tipChipsMode, playerCount }) {
   const bankerHandle = p.from.venmoHandle
   const dealerHandle = p.to.venmoHandle
   return (
@@ -306,7 +309,7 @@ function DealerPayoutRow({ payment: p, upfront, tips, total, tipPct, playerCount
       </div>
       <Divider />
       <DetailRow label={`Upfront fees (${playerCount} × ${fmt(upfront / playerCount)})`} value={fmt(upfront)} />
-      <DetailRow label={`Winner tips (${tipPct}% rounded down)`} value={fmt(tips)} />
+      <DetailRow label={tipChipsMode ? 'Tips (chips from players)' : `Winner tips (${tipPct}% rounded down)`} value={fmt(tips)} />
       <Divider style={{ margin: '8px 0' }} />
       <DetailRow label="Dealer total from banker" value={fmt(total)} bold color="var(--success)" />
       <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useGame } from '../context/GameContext.jsx'
 import { Screen, Hero, Card, Avatar, Divider, BtnPrimary, BtnSecondary } from '../components/UI.jsx'
-import { fmt, fmtSigned, computeSettlement, buildSettlementGame, inferDealerFeeIncluded } from '../utils/settlement.js'
+import { fmt, fmtSigned, computeSettlement, buildSettlementGame, inferDealerFeeIncluded, inferTipMode } from '../utils/settlement.js'
 import { loadGames, deleteGame } from '../lib/db.js'
 import LeaderboardScreen from './LeaderboardScreen.jsx'
 import AmalfiReportScreen from './AmalfiReportScreen.jsx'
@@ -16,7 +16,9 @@ function rebuildSetupAndPlayers(game) {
     gameType: game.gameType,
     buyInAmount: String(game.buyInAmount ?? ''),
     dealerUpfrontPerPlayer: String(game.dealerUpfrontPerPlayer ?? ''),
-    dealerTipPercent: String((game.dealerTipPercent ?? 0) * 100),
+    dealerTipPercent: inferTipMode(game) === 'chips' ? '10' : String((game.dealerTipPercent ?? 0) * 100),
+    tipMode: inferTipMode(game),
+    dealerTipChips: inferTipMode(game) === 'chips' ? String(game.totalDealerTips) : '',
     dealerName: game.dealerName || '',
     dealerVenmoHandle: game.dealerVenmoHandle || '',
     bankerName: game.bankerName || '',
@@ -262,7 +264,9 @@ function GameDetail({ game, onBack }) {
         <InfoRow label="Game type" value={GAME_TYPE_LABELS[game.gameType] || game.gameType} />
         <InfoRow label="Buy-in" value={fmt(game.buyInAmount)} />
         {!isAmalfi && <InfoRow label="Dealer fee / player" value={fmt(game.dealerUpfrontPerPlayer)} />}
-        {!isAmalfi && <InfoRow label="Dealer tip %" value={`${(game.dealerTipPercent * 100).toFixed(0)}%`} />}
+        {!isAmalfi && (inferTipMode(game) === 'chips'
+          ? <InfoRow label="Dealer tips" value="Chips to dealer" />
+          : <InfoRow label="Dealer tip %" value={`${(game.dealerTipPercent * 100).toFixed(0)}%`} />)}
         <Divider />
         <InfoRow label={feeIncluded && !isAmalfi ? 'Total buy-ins' : 'Total pot'} value={fmt(game.totalPot)} highlight />
         {!isAmalfi && game.finalDealerTake > 0 && <>
