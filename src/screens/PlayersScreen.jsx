@@ -38,6 +38,38 @@ export default function PlayersScreen() {
     }
     dispatch({ type: 'SET_PLAYERS', players: valid })
     dispatch({ type: 'SET_SCREEN', screen: 'rebuys' })
+    saveNewPlayersToRoster(valid)
+  }
+
+  // Add anyone in this game who isn't already in the saved roster. Runs in the
+  // background so starting the game never waits on (or fails because of) it.
+  const saveNewPlayersToRoster = async (gamePlayers) => {
+    const known = new Set(savedPlayers.map(sp => sp.name.trim().toLowerCase()))
+    const toSave = []
+    for (const p of gamePlayers) {
+      if (p._savedId) continue
+      const key = p.name.trim().toLowerCase()
+      if (known.has(key)) continue
+      known.add(key) // also dedupes two new players with the same name
+      toSave.push({
+        id: p.id,
+        name: p.name.trim(),
+        initials: initials(p.name),
+        venmoHandle: p.venmoHandle || '',
+      })
+    }
+    if (toSave.length === 0) return
+
+    try {
+      for (const player of toSave) await upsertPlayer(player)
+      const { loadPlayers } = await import('../lib/db.js')
+      dispatch({ type: 'SET_SAVED_PLAYERS', players: await loadPlayers() })
+      showToast(toSave.length === 1
+        ? `${toSave[0].name} added to saved players`
+        : `${toSave.length} new players added to saved players`)
+    } catch (e) {
+      console.warn('[PokerBank] Could not save new players to roster:', e)
+    }
   }
 
   return (
