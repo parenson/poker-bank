@@ -6,6 +6,7 @@ import { TOURNAMENT_STORAGE_KEY } from './TournamentContext.jsx'
 // Dealer fee is part of the buy-in (carved out of the first buy-in) for new
 // games; reopened legacy games set this to false (fee charged on top).
 const initialSetup = {
+  venmoNote: '',            // description on Venmo links; blank = default ('Amalfi' / 'Poker')
   dealerFeeIncluded: true,
   tipMode: 'percent',       // 'percent' = % of winners' profit, 'chips' = players hand chips to the dealer
   dealerTipChips: '',       // value of tip chips the dealer holds (chips mode), entered at cash out

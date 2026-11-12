@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useGame } from '../context/GameContext.jsx'
 import {
-  Screen, Hero, Card, Avatar, Divider, BtnPrimary, BtnSecondary, VenmoBtn
+  Screen, Hero, Card, Field, Avatar, Divider, BtnPrimary, BtnSecondary, VenmoBtn
 } from '../components/UI.jsx'
 import { fmt, fmtSigned } from '../utils/settlement.js'
 import { saveGame, updateGame } from '../lib/db.js'
@@ -26,6 +26,9 @@ export default function ResultsScreen() {
   const tipPct = parseFloat(setup.dealerTipPercent) || 0
   const isAmalfi = setup.gameType === 'amalfi'
   const feeIncluded = settlement.dealerFeeIncluded !== false
+  // One description used on every Venmo pay/request link for this game.
+  const defaultVenmoNote = isAmalfi ? 'Amalfi' : 'Poker'
+  const venmoNote = (setup.venmoNote ?? '').trim() || defaultVenmoNote
 
   const handleSave = async () => {
     if (saved || saving) return
@@ -87,6 +90,19 @@ export default function ResultsScreen() {
         </div>
       </Card>
 
+      <Card title="Venmo Description">
+        <p style={{ fontSize: 12, color: 'var(--cream-dim)', marginBottom: 10 }}>
+          Shown as the note on every Venmo payment and request for this game.
+        </p>
+        <Field style={{ marginBottom: 0 }}>
+          <input
+            type="text" maxLength={100} placeholder={defaultVenmoNote}
+            value={setup.venmoNote ?? ''}
+            onChange={e => dispatch({ type: 'SET_SETUP', payload: { venmoNote: e.target.value } })}
+          />
+        </Field>
+      </Card>
+
       <Card title="Standings">
         {sorted.map((s, i) => (
           <PlayerResult key={s.player.id} settlement={s} rank={i + 1} tipPct={tipPct} isAmalfi={isAmalfi} feeIncluded={feeIncluded} tipChipsMode={tipChipsMode} />
@@ -99,7 +115,7 @@ export default function ResultsScreen() {
             Each loser pays the banker their net loss.
           </p>
           {loserPayments.map((p, i) => (
-            <PaymentRow key={i} payment={p} note={isAmalfi ? 'Amalfi' : 'Poker loss'} />
+            <PaymentRow key={i} payment={p} note={venmoNote} />
           ))}
         </Card>
       )}
@@ -110,7 +126,7 @@ export default function ResultsScreen() {
             Banker pays each winner their net take-home.
           </p>
           {winnerPayments.map((p, i) => (
-            <PaymentRow key={i} payment={p} note={isAmalfi ? 'Amalfi' : 'Poker winnings'} />
+            <PaymentRow key={i} payment={p} note={venmoNote} />
           ))}
         </Card>
       )}
@@ -124,6 +140,7 @@ export default function ResultsScreen() {
             total={finalDealerTake}
             tipPct={tipPct}
             tipChipsMode={tipChipsMode}
+            note={venmoNote}
             playerCount={players.length}
           />
         </Card>
@@ -292,7 +309,7 @@ function PaymentRow({ payment: p, note }) {
   )
 }
 
-function DealerPayoutRow({ payment: p, upfront, tips, total, tipPct, tipChipsMode, playerCount }) {
+function DealerPayoutRow({ payment: p, upfront, tips, total, tipPct, tipChipsMode, note, playerCount }) {
   const bankerHandle = p.from.venmoHandle
   const dealerHandle = p.to.venmoHandle
   return (
@@ -315,11 +332,11 @@ function DealerPayoutRow({ payment: p, upfront, tips, total, tipPct, tipChipsMod
       <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
         {dealerHandle && (
           <VenmoBtn txn="pay" handle={dealerHandle} amount={total}
-            note="Poker dealer payout" label={`Pay dealer @${dealerHandle}`} variant="pay" />
+            note={note} label={`Pay dealer @${dealerHandle}`} variant="pay" />
         )}
         {bankerHandle && (
           <VenmoBtn txn="charge" handle={bankerHandle} amount={total}
-            note="Poker dealer payout" label={`Request from @${bankerHandle}`} variant="request" />
+            note={note} label={`Request from @${bankerHandle}`} variant="request" />
         )}
       </div>
     </div>
